@@ -16,9 +16,15 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 
-# ==========================================
-# 🟢 1. SETTINGS & FOLDERS 🟢
-# ==========================================
+# =====================================================================
+# 🟢 1. EASY CUSTOMIZATION BLOCK 🟢
+# =====================================================================
+CHANNEL_NAME = "@AnimeJokesHindi"          # अपने चौथे चैनल का नाम
+TOP_BANNER_TEXT = "Anime Comedy 😂"        # ऊपर दिखने वाला बैनर
+FONT_PATH = "./NirmalaB.ttf"
+
+# =====================================================================
+
 OUTPUT_FOLDER = "./output"
 TEMP_FOLDER = "./temp"
 TEXT_FILE_PATH = "./jokes.txt"
@@ -37,13 +43,11 @@ os.makedirs(TOKENS_FOLDER, exist_ok=True)
 WIDTH, HEIGHT = 720, 1280
 FPS = 30
 
-char_colors = {"Wife": (255, 105, 180), "Husband": (100, 200, 100)}
-
 # ==========================================
-# 2. AUDIO GENERATION
+# 2. AUDIO GENERATION (ANIME STYLE VOICES)
 # ==========================================
 async def download_voices(story_lines):
-    print("🎙️ Generating AI Voices...")
+    print("🎙️ Generating Anime Style Voices...")
     for i, line in enumerate(story_lines):
         filename = os.path.join(TEMP_FOLDER, f"temp_audio_{i}.mp3")
         line["audio"] = filename
@@ -83,16 +87,26 @@ def fetch_and_delete_first_joke():
             emotion = bracket_parts[0] if len(bracket_parts) > 0 else "normal"
             camera_cmd = bracket_parts[1] if len(bracket_parts) > 1 else "normal"
             
-            is_wife = (speaker.lower() == "wife")
+            # 🟢 ANIME VOICE TUNING
+            is_girl = (speaker.lower() == "girl")
+            if is_girl:
+                voice = "hi-IN-SwaraNeural"
+                pitch = "+50Hz"   # Cute Kawaii Voice
+                rate = "+15%"
+            else:
+                voice = "hi-IN-MadhurNeural"
+                pitch = "-10Hz"   # Cool, deep Anime Boy Voice
+                rate = "+5%"
+            
             story_data.append({
                 "scene": idx + 1,
-                "speaker": "Wife" if is_wife else "Husband",
+                "speaker": "Girl" if is_girl else "Boy",
                 "text": text,
-                "voice": "hi-IN-SwaraNeural" if is_wife else "hi-IN-MadhurNeural",
+                "voice": voice,
                 "emotion": emotion,
                 "camera": camera_cmd,
-                "pitch": "+45Hz" if is_wife else "+35Hz",
-                "rate": "+25%" if is_wife else "+20%"
+                "pitch": pitch,
+                "rate": rate
             })
     return story_data
 
@@ -102,17 +116,15 @@ def fetch_and_delete_first_joke():
 def upload_to_youtube(video_file):
     print("🌐 YouTube Uploading...")
     token_files = [os.path.join(TOKENS_FOLDER, f) for f in os.listdir(TOKENS_FOLDER) if f.endswith('.json')]
-    if not token_files:
-        print("❌ Token not found!")
-        return False
+    if not token_files: return False
         
-    yt_titles = ["Husband vs Wife 😂 | Funny Joke", "लोटपोट कर देने वाला जोक 🤣", "पति पत्नी की लड़ाई 😆 | Funny Shorts"]
+    yt_titles = ["Otaku Comedy 😂 | Anime Jokes Hindi", "Anime Boys vs Girls 🤣 | Funny Shorts", "ये Anime कार्टून देखकर हँसी नहीं रुकेगी 😆"]
     request_body = {
         "snippet": {
             "title": random.choice(yt_titles), 
-            "description": "Trending Husband Wife funny joke! Subscribe for daily comedy shorts! #funny #comedy #shorts #husbandwife", 
-            "tags": ["funny", "comedy", "husband wife joke", "hindi jokes", "make joke of"], 
-            "categoryId": "23" 
+            "description": "Funny Anime style comedy in Hindi! Subscribe for more! #anime #funny #hindi #shorts #otaku", 
+            "tags": ["anime hindi", "funny anime", "hindi cartoon", "anime shorts", "comedy", "otaku"], 
+            "categoryId": "24" # Entertainment
         },
         "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False}
     }
@@ -130,17 +142,53 @@ def upload_to_youtube(video_file):
             response = request.execute()
             print(f"✅ Video LIVE: https://youtu.be/{response['id']}")
             return True
-        except Exception as e:
-            print(f"❌ Upload Error: {e}")
+        except Exception as e: print(f"❌ Upload Error: {e}")
     return False
 
 # ==========================================
-# 5. DRAWING & VIRAL ANIMATIONS
+# 5. DRAWING HELPERS
 # ==========================================
-class Character:
-    def __init__(self, name, color):
+def render_text_with_outline(surf, text, font, color, x, y, outline_color=(0,0,0), thickness=3, center_x=False):
+    words = text.split(" ")
+    lines, current_line = [], ""
+    for word in words:
+        test_line = current_line + word + " "
+        if font.size(test_line)[0] < WIDTH - 80: current_line = test_line
+        else: lines.append(current_line); current_line = word + " "
+    lines.append(current_line)
+    
+    for i, line in enumerate(lines):
+        final_x = x
+        if center_x: final_x = (WIDTH - font.size(line)[0]) // 2
+        for dx in range(-thickness, thickness + 1):
+            for dy in range(-thickness, thickness + 1):
+                if dx != 0 or dy != 0:
+                    txt_bg = font.render(line, True, outline_color)
+                    surf.blit(txt_bg, (final_x + dx, y + i * 55 + dy))
+        txt_fg = font.render(line, True, color)
+        surf.blit(txt_fg, (final_x, y + i * 55))
+
+# ==========================================
+# 🟢 6. ANIME CHARACTER CLASS 🟢
+# ==========================================
+class AnimeCharacter:
+    def __init__(self, name, char_type):
         self.name = name
-        self.color = color
+        self.char_type = char_type 
+        
+        self.skin_color = (255, 228, 215) # Pale Anime Skin
+        
+        if self.char_type == 'boy':
+            self.jacket_color = (60, 90, 130)  # Denim Blue
+            self.shirt_color = (30, 30, 30)    # Black inner shirt
+            self.hair_color = (20, 20, 30)     # Dark Spiky Hair
+            self.eye_color = (150, 40, 40)     # Red/Brown sharp eyes
+        else:
+            self.dress_color = (255, 170, 190) # Pink Dress
+            self.hair_color = (90, 50, 30)     # Brown Hair
+            self.eye_color = (120, 70, 30)     # Big Hazel Eyes
+            self.headphone_color = (255, 100, 150) # Pink Headphones
+
         self.pos = np.array([0.0, 0.0])
         self.target_pos = np.array([0.0, 0.0])
         self.blink_timer = 0
@@ -156,100 +204,133 @@ class Character:
 
     def draw(self, surf, is_talking, char_emotion, timer, action_frame):
         world_x, world_y = int(self.pos[0]), int(self.pos[1])
-        
-        # Surface for rotation (Falling effect)
-        char_surf = pygame.Surface((400, 500), pygame.SRCALPHA)
-        cx, cy = 200, 250 
+        char_surf = pygame.Surface((400, 560), pygame.SRCALPHA)
+        cx, cy = 200, 240
 
-        angle = 0
-        y_off = 0
-        is_hitting = False
+        angle = 0; y_off = 0; is_hitting = False
         hit_dir = 1 if not self.flip else -1
         
-        face_color = (255, 120, 120) if char_emotion in ["angry", "slap", "punch", "victim"] else (255, 220, 180)
-
-        # 🟢 ACTION ANIMATIONS 🟢
+        # Action Animations
         if action_frame >= 0:
             if char_emotion in ["slap", "punch"]:
-                if action_frame < 15: is_hitting = True # हाथ आगे मारना
+                if action_frame < 15: is_hitting = True
             elif char_emotion == "victim":
-                face_color = (255, 80, 80) # चेहरा लाल
                 if action_frame < 10:
-                    progress = action_frame / 10.0
-                    angle = -90 * progress if self.flip else 90 * progress
-                    y_off = 150 * progress
-                elif action_frame < 35:
-                    angle = -90 if self.flip else 90
-                    y_off = 150
+                    progress = action_frame / 10.0; angle = -90 * progress if self.flip else 90 * progress; y_off = 150 * progress
+                elif action_frame < 35: angle = -90 if self.flip else 90; y_off = 150
                 elif action_frame < 50:
-                    progress = (action_frame - 35) / 15.0
-                    angle = (-90 if self.flip else 90) * (1.0 - progress)
-                    y_off = 150 * (1.0 - progress)
-            elif char_emotion == "shock":
-                if action_frame < 25:
-                    y_off = -abs(math.sin(action_frame * 0.8)) * 80 # झटके से उछलना
+                    progress = (action_frame - 35) / 15.0; angle = (-90 if self.flip else 90) * (1.0 - progress); y_off = 150 * (1.0 - progress)
+            elif char_emotion in ["shock", "funny"]:
+                if action_frame < 25: y_off = -abs(math.sin(action_frame * 0.8)) * 80 
 
-        # DRAWING 
-        pygame.draw.ellipse(surf, (0,0,0,80), (world_x-70, world_y+180, 140, 30)) # Shadow
+        # Shadow
+        pygame.draw.ellipse(surf, (0,0,0,80), (world_x-70, world_y+180, 140, 30))
 
-        # Legs
+        # 🟢 Girl Back Hair
+        if self.char_type == 'girl':
+            pygame.draw.ellipse(char_surf, self.hair_color, (cx-85, cy-120, 170, 220))
+
+        # 🟢 Body
         pygame.draw.line(char_surf, (20,20,20), (cx - 30, cy + 160), (cx - 30, cy + 190), 12)
         pygame.draw.line(char_surf, (20,20,20), (cx + 30, cy + 160), (cx + 30, cy + 190), 12)
-        
-        # Body
-        pygame.draw.rect(char_surf, self.color, (cx-60, cy, 120, 160), border_radius=30)
-        pygame.draw.rect(char_surf, (20,20,20), (cx-60, cy, 120, 160), 6, border_radius=30)
 
-        # Arms
+        if self.char_type == 'boy':
+            # Denim Jacket Open with Inner Shirt
+            pygame.draw.rect(char_surf, self.shirt_color, (cx-50, cy, 100, 160), border_radius=10)
+            pygame.draw.rect(char_surf, self.jacket_color, (cx-65, cy, 40, 160), border_radius=10) # Left Jacket Flap
+            pygame.draw.rect(char_surf, self.jacket_color, (cx+25, cy, 40, 160), border_radius=10) # Right Jacket Flap
+        else:
+            # Pink Dress
+            pygame.draw.rect(char_surf, self.dress_color, (cx-55, cy, 110, 160), border_radius=20)
+            pygame.draw.rect(char_surf, (20,20,20), (cx-55, cy, 110, 160), 4, border_radius=20)
+
+        # 🟢 Arms
         arm_swing = math.sin(timer * 0.5) * 20 if is_talking else 0
         if char_emotion == "angry" and is_talking: arm_swing = math.sin(timer * 2.0) * 40
         
+        arm_color = self.jacket_color if self.char_type == 'boy' else self.skin_color
+        
         if is_hitting:
-            # 👊 थप्पड़ मारने वाला हाथ
-            pygame.draw.line(char_surf, (20,20,20), (cx, cy + 50), (cx + (140 * hit_dir), cy + 30), 15)
-            pygame.draw.circle(char_surf, (255, 220, 180), (cx + (140 * hit_dir), cy + 30), 20) # मुट्ठी
+            pygame.draw.line(char_surf, arm_color, (cx, cy + 40), (cx + (140 * hit_dir), cy + 20), 18)
+            pygame.draw.circle(char_surf, self.skin_color, (int(cx + (140 * hit_dir)), cy + 20), 22)
         else:
-            pygame.draw.line(char_surf, (20,20,20), (cx - 60, cy + 50), (cx - 90, cy + 90 + arm_swing), 12)
-            pygame.draw.line(char_surf, (20,20,20), (cx + 60, cy + 50), (cx + 90, cy + 90 - arm_swing), 12)
+            pygame.draw.line(char_surf, arm_color, (cx - 60, cy + 40), (cx - 90, cy + 90 + arm_swing), 15)
+            pygame.draw.line(char_surf, arm_color, (cx + 60, cy + 40), (cx + 90, cy + 90 - arm_swing), 15)
+            pygame.draw.circle(char_surf, self.skin_color, (cx - 90, int(cy + 90 + arm_swing)), 16)
+            pygame.draw.circle(char_surf, self.skin_color, (cx + 90, int(cy + 90 - arm_swing)), 16)
 
-        # Head
+        # 🟢 Head & Face
         head_bounce = math.sin(timer * 1.5) * 5 if is_talking else 0
-        head_y = cy - 60 + head_bounce
-        pygame.draw.circle(char_surf, face_color, (cx, head_y), 70)
-        pygame.draw.circle(char_surf, (20,20,20), (cx, head_y), 70, 6)
+        head_y = cy - 65 + head_bounce
+        
+        # Anime Pointy Chin
+        pygame.draw.polygon(char_surf, self.skin_color, [(cx-60, head_y), (cx+60, head_y), (cx, head_y+80)])
+        pygame.draw.circle(char_surf, self.skin_color, (cx, head_y), 60)
+        
+        # Blush
+        pygame.draw.ellipse(char_surf, (255, 150, 150, 100), (cx-55, head_y+20, 30, 15))
+        pygame.draw.ellipse(char_surf, (255, 150, 150, 100), (cx+25, head_y+20, 30, 15))
 
-        # Eyes & Expressions
+        # 🟢 Eyes (Anime Sparkle Eyes)
         look = -10 if self.flip else 10
         if char_emotion == "victim" and 0 <= action_frame < 50:
-            # 😵 चकराती आँखें
-            pygame.draw.line(char_surf, (20,20,20), (cx-35+look, head_y-30), (cx-15+look, head_y-10), 6)
-            pygame.draw.line(char_surf, (20,20,20), (cx-15+look, head_y-30), (cx-35+look, head_y-10), 6)
-            pygame.draw.line(char_surf, (20,20,20), (cx+5+look, head_y-30), (cx+25+look, head_y-10), 6)
-            pygame.draw.line(char_surf, (20,20,20), (cx+25+look, head_y-30), (cx+5+look, head_y-10), 6)
+            for ex in [-25, 25]:
+                pygame.draw.line(char_surf, (20,20,20), (cx+ex-12+look, head_y-10), (cx+ex+12+look, head_y+10), 4)
+                pygame.draw.line(char_surf, (20,20,20), (cx+ex+12+look, head_y-10), (cx+ex-12+look, head_y+10), 4)
+        elif self.is_blinking:
+            pygame.draw.line(char_surf, (20,20,20), (cx-40+look, head_y-5), (cx-10+look, head_y-5), 4)
+            pygame.draw.line(char_surf, (20,20,20), (cx+10+look, head_y-5), (cx+40+look, head_y-5), 4)
         else:
-            eye_h = 4 if self.is_blinking else 30
-            if char_emotion == "shock": eye_h = 55
-            pygame.draw.ellipse(char_surf, (20,20,20), (cx - 30 + look, head_y - 20, 20, eye_h))
-            pygame.draw.ellipse(char_surf, (20,20,20), (cx + 10 + look, head_y - 20, 20, eye_h))
+            if self.char_type == 'girl':
+                # Big Kawaii Eyes
+                pygame.draw.ellipse(char_surf, (255,255,255), (cx-40+look, head_y-25, 30, 45))
+                pygame.draw.ellipse(char_surf, (255,255,255), (cx+10+look, head_y-25, 30, 45))
+                # Iris
+                pygame.draw.ellipse(char_surf, self.eye_color, (cx-35+look, head_y-15, 20, 30))
+                pygame.draw.ellipse(char_surf, self.eye_color, (cx+15+look, head_y-15, 20, 30))
+                # Sparkles
+                pygame.draw.circle(char_surf, (255,255,255), (cx-28+look, head_y-5), 5)
+                pygame.draw.circle(char_surf, (255,255,255), (cx+22+look, head_y-5), 5)
+            else:
+                # Cool Sharp Boy Eyes
+                pygame.draw.line(char_surf, (20,20,20), (cx-45+look, head_y-15), (cx-15+look, head_y-5), 5) # Eyelid
+                pygame.draw.line(char_surf, (20,20,20), (cx+15+look, head_y-5), (cx+45+look, head_y-15), 5)
+                pygame.draw.circle(char_surf, self.eye_color, (cx-30+look, head_y-5), 8)
+                pygame.draw.circle(char_surf, self.eye_color, (cx+30+look, head_y-5), 8)
+                pygame.draw.circle(char_surf, (20,20,20), (cx-30+look, head_y-5), 3) # Pupil
+                pygame.draw.circle(char_surf, (20,20,20), (cx+30+look, head_y-5), 3)
 
-        # 💢 Angry Vein & Sad Tear
-        if char_emotion in ["angry", "slap", "punch"]:
-            pygame.draw.line(char_surf, (20,20,20), (cx - 40 + look, head_y - 35), (cx - 15 + look, head_y - 15), 5)
-            pygame.draw.line(char_surf, (20,20,20), (cx + 35 + look, head_y - 35), (cx + 10 + look, head_y - 15), 5)
-            pygame.draw.line(char_surf, (200,0,0), (cx + 20, head_y - 55), (cx + 40, head_y - 35), 4)
-            pygame.draw.line(char_surf, (200,0,0), (cx + 40, head_y - 55), (cx + 20, head_y - 35), 4)
-        if char_emotion in ["sad", "cry"]: 
-            pygame.draw.ellipse(char_surf, (0, 191, 255), (cx + 30 + look, head_y - 5, 12, 20))
-
-        # Mouth (Strict Sync)
+        # 🟢 Mouth
         if is_talking:
-            m_size = abs(math.sin(timer * 1.5)) * 30 + 5
-            if char_emotion in ["shock", "slap"]: m_size = 45
-            pygame.draw.ellipse(char_surf, (180, 0, 0), (cx - 20 + look, head_y + 25, 40, m_size))
+            m_size = abs(math.sin(timer * 1.5)) * 15 + 5
+            if char_emotion in ["shock", "slap"]: m_size = 25
+            pygame.draw.ellipse(char_surf, (150, 40, 40), (cx-10+look, head_y+30, 20, m_size))
         else:
-            pygame.draw.line(char_surf, (20,20,20), (cx - 15 + look, head_y + 35), (cx + 15 + look, head_y + 35), 6)
+            pygame.draw.line(char_surf, (20,20,20), (cx-5+look, head_y+35), (cx+5+look, head_y+35), 3) # Tiny anime mouth
 
-        # 🟢 Apply Rotation (गिरने का असर)
+        # 🟢 Hair & Accessories
+        if self.char_type == 'boy':
+            # Spiky Anime Hair
+            for hx in range(cx-70, cx+70, 20):
+                pygame.draw.polygon(char_surf, self.hair_color, [(hx, head_y-40), (hx+20, head_y-120-random.randint(0,20)), (hx+40, head_y-40)])
+            # Front Bangs
+            pygame.draw.polygon(char_surf, self.hair_color, [(cx-30, head_y-50), (cx, head_y-10), (cx+30, head_y-50)])
+        else:
+            # Girl Front Bangs
+            pygame.draw.ellipse(char_surf, self.hair_color, (cx-65, head_y-70, 130, 60))
+            
+            # 🟢 Kawaii Cat Headphones
+            pygame.draw.arc(char_surf, (20,20,20), (cx-75, head_y-80, 150, 100), 0, math.pi, 8) # Headband
+            # Cat Ears
+            pygame.draw.polygon(char_surf, self.headphone_color, [(cx-60, head_y-70), (cx-40, head_y-120), (cx-20, head_y-70)])
+            pygame.draw.polygon(char_surf, self.headphone_color, [(cx+20, head_y-70), (cx+40, head_y-120), (cx+60, head_y-70)])
+            # Earpads
+            pygame.draw.ellipse(char_surf, self.headphone_color, (cx-85, head_y-30, 30, 60))
+            pygame.draw.ellipse(char_surf, self.headphone_color, (cx+55, head_y-30, 30, 60))
+            pygame.draw.ellipse(char_surf, (20,20,20), (cx-85, head_y-30, 30, 60), 4)
+            pygame.draw.ellipse(char_surf, (20,20,20), (cx+55, head_y-30, 30, 60), 4)
+
+        # Apply rotation for falling
         if angle != 0:
             rotated_surf = pygame.transform.rotate(char_surf, angle)
             new_rect = rotated_surf.get_rect(center=(world_x, world_y + y_off))
@@ -259,17 +340,25 @@ class Character:
 
 
 # ==========================================
-# 6. MAIN ENGINE (WITH CAMERA PANNING)
+# 7. MAIN ENGINE
 # ==========================================
 async def main():
-    print("🚀 Auto Viral Video Generator Started...")
+    print("🚀 Auto Anime Video Generator Started...")
     current_story = fetch_and_delete_first_joke()
     if not current_story: return
         
     await download_voices(current_story)
 
     pygame.init()
-    # 🟢 Background थोड़ा बड़ा बनाया है ताकि कैमरा खिसक (Pan) सके
+    try: 
+        hindi_font = pygame.font.Font(FONT_PATH, 45)
+        title_font = pygame.font.Font(FONT_PATH, 60)
+        watermark_font = pygame.font.Font(FONT_PATH, 35)
+    except: 
+        hindi_font = pygame.font.SysFont("Arial", 45)
+        title_font = pygame.font.SysFont("Arial", 60)
+        watermark_font = pygame.font.SysFont("Arial", 35)
+
     world_w = WIDTH + 400 
     main_surf = pygame.Surface((world_w, HEIGHT))
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -285,7 +374,11 @@ async def main():
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video_writer = cv2.VideoWriter(temp_video_path, fourcc, FPS, (WIDTH, HEIGHT))
 
-    chars = {speaker: Character(speaker, color) for speaker, color in char_colors.items()}
+    chars = {
+        "Girl": AnimeCharacter("Girl", "girl"),
+        "Boy": AnimeCharacter("Boy", "boy")
+    }
+    
     audio_clips = []
     
     for idx, line in enumerate(current_story):
@@ -295,18 +388,14 @@ async def main():
         emotion = line.get("emotion", "normal")
         sfx_path = None
         if emotion != "normal":
-            mp3_path = os.path.join(SFX_FOLDER, f"{emotion}.mp3")
-            wav_path = os.path.join(SFX_FOLDER, f"{emotion}.wav")
-            if os.path.exists(mp3_path): sfx_path = mp3_path
-            elif os.path.exists(wav_path): sfx_path = wav_path
+            for ext in [".mp3", ".wav"]:
+                if os.path.exists(os.path.join(SFX_FOLDER, f"{emotion}{ext}")):
+                    sfx_path = os.path.join(SFX_FOLDER, f"{emotion}{ext}"); break
 
         if sfx_path:
             sfx_clip = AudioFileClip(sfx_path).fx(afx.volumex, 1.8)
-            mixed_audio = CompositeAudioClip([
-                speech_clip.set_start(0), 
-                sfx_clip.set_start(speech_clip.duration) 
-            ])
-            line["total_dur"] = speech_clip.duration + max(sfx_clip.duration, 1.8) # Animation time
+            mixed_audio = CompositeAudioClip([speech_clip.set_start(0), sfx_clip.set_start(speech_clip.duration)])
+            line["total_dur"] = speech_clip.duration + max(sfx_clip.duration, 1.8) 
             line["speech_dur"] = speech_clip.duration
             audio_clips.append(mixed_audio)
         else:
@@ -314,9 +403,7 @@ async def main():
             line["speech_dur"] = speech_clip.duration
             audio_clips.append(speech_clip)
 
-    print("🎥 Rendering Video Frames...")
-    timer = 0
-    cam_x = 200 # Initial center offset
+    timer = 0; cam_x = 200 
 
     for idx, line in enumerate(current_story):
         speaker = line["speaker"]
@@ -326,8 +413,8 @@ async def main():
         frames_to_render = int(line["total_dur"] * FPS)
         speech_frames = int(line["speech_dur"] * FPS)
         
-        chars["Wife"].target_pos = [world_w//2 - 180, HEIGHT//2 + 100]; chars["Wife"].flip = False
-        chars["Husband"].target_pos = [world_w//2 + 180, HEIGHT//2 + 100]; chars["Husband"].flip = True   
+        chars["Girl"].target_pos = [world_w//2 - 180, HEIGHT//2 + 100]; chars["Girl"].flip = False
+        chars["Boy"].target_pos = [world_w//2 + 180, HEIGHT//2 + 100]; chars["Boy"].flip = True   
 
         for f in range(frames_to_render):
             timer += 1
@@ -335,18 +422,14 @@ async def main():
             action_frame = f - speech_frames
             is_action_time = action_frame >= 0
             
-            # 🟢 DYNAMIC CAMERA PANNING (हलचल)
-            if is_talking_now:
-                target_cam_x = 100 if speaker == "Wife" else 300
-            elif is_action_time and emotion in ["slap", "punch"]:
-                target_cam_x = 300 if speaker == "Wife" else 100 # पैन टू विक्टिम
-            else:
-                target_cam_x = 200 # Center
+            if is_talking_now: target_cam_x = 100 if speaker == "Girl" else 300
+            elif is_action_time and emotion in ["slap", "punch"]: target_cam_x = 300 if speaker == "Girl" else 100 
+            else: target_cam_x = 200 
                 
-            cam_x += (target_cam_x - cam_x) * 0.1 # Smooth Lerp Movement
+            cam_x += (target_cam_x - cam_x) * 0.1 
             
             if loaded_bg: main_surf.blit(loaded_bg, (0, 0))
-            else: main_surf.fill((160, 140, 240))
+            else: main_surf.fill((200, 100, 100)) # Anime Red BG Fallback
                 
             for name, char in chars.items():
                 is_talking = (name == speaker and is_talking_now)
@@ -358,52 +441,54 @@ async def main():
                 
                 char.draw(main_surf, is_talking, char_emotion, timer, action_frame)
 
-            # 🟢 IMPACT FLASH (स्क्रीन पर सफ़ेद चमक)
             if is_action_time and emotion in ["slap", "punch"] and 0 <= action_frame <= 2:
                 main_surf.fill((255, 255, 255), special_flags=pygame.BLEND_RGB_ADD)
 
-            # 🟢 CAMERA ZOOM AND SHAKE 
             is_zoomed = "zoom" in camera_cmd and (is_talking_now or is_action_time)
             is_shaking = "shake" in camera_cmd and is_action_time
             
             if is_zoomed or is_shaking:
                 zoom_scale = 1.3 if is_zoomed else 1.0
                 new_w, new_h = int(world_w * zoom_scale), int(HEIGHT * zoom_scale)
-                
                 if is_zoomed:
                     zoomed_surf = pygame.transform.smoothscale(main_surf, (new_w, new_h))
                     zoom_offset_x = (new_w - world_w) // 2
                     zoom_offset_y = -200 
-                else:
-                    zoomed_surf = main_surf
-                    zoom_offset_x, zoom_offset_y = 0, 0
+                else: zoomed_surf = main_surf; zoom_offset_x, zoom_offset_y = 0, 0
                 
                 if is_shaking:
                     shake_int = 25 if emotion in ["slap", "punch"] else 10
                     zoom_offset_x += random.randint(-shake_int, shake_int)
                     zoom_offset_y += random.randint(-shake_int, shake_int)
                 
-                # Crop and draw based on Camera Pan
-                screen.fill((0,0,0))
-                screen.blit(zoomed_surf, (-cam_x - zoom_offset_x, zoom_offset_y))
+                screen.fill((0,0,0)); screen.blit(zoomed_surf, (-cam_x - zoom_offset_x, zoom_offset_y))
             else:
-                screen.fill((0,0,0))
-                screen.blit(main_surf, (-int(cam_x), 0)) # Apply Pan
+                screen.fill((0,0,0)); screen.blit(main_surf, (-int(cam_x), 0)) 
+                
+            watermark_surf = watermark_font.render(CHANNEL_NAME, True, (255, 255, 255))
+            watermark_surf.set_alpha(120)
+            screen.blit(watermark_surf, (20, 160))
+            
+            pygame.draw.rect(screen, (220, 50, 50), (0, 40, WIDTH, 90)) # Red Anime Banner
+            render_text_with_outline(screen, TOP_BANNER_TEXT, title_font, (255, 255, 255), 0, 50, (0,0,0), 5, center_x=True)
             
             view = pygame.surfarray.array3d(screen); view = view.transpose([1, 0, 2])
             img_bgr = cv2.cvtColor(view, cv2.COLOR_RGB2BGR); video_writer.write(img_bgr)
 
-    # LAUGH TRACK
     laugh_frames = 2 * FPS 
     for f in range(laugh_frames):
         timer += 1
-        cam_x += (200 - cam_x) * 0.1 # Pan back to center smoothly
+        cam_x += (200 - cam_x) * 0.1 
         
         if loaded_bg: main_surf.blit(loaded_bg, (0, 0))
-        else: main_surf.fill((160, 140, 240))
+        else: main_surf.fill((200, 100, 100))
         for name, char in chars.items(): char.update(); char.draw(main_surf, False, "normal", timer, -1)
         
         screen.fill((0,0,0)); screen.blit(main_surf, (-int(cam_x), 0))
+        
+        pygame.draw.rect(screen, (220, 50, 50), (0, 40, WIDTH, 90))
+        render_text_with_outline(screen, TOP_BANNER_TEXT, title_font, (255, 255, 255), 0, 50, (0,0,0), 5, center_x=True)
+
         view = pygame.surfarray.array3d(screen); view = view.transpose([1, 0, 2])
         img_bgr = cv2.cvtColor(view, cv2.COLOR_RGB2BGR); video_writer.write(img_bgr)
 
@@ -412,7 +497,6 @@ async def main():
 
     print("🎧 Merging Audio...")
     final_audio = concatenate_audioclips(audio_clips)
-    
     if os.path.exists(LAUGH_FILE):
         laugh_clip = AudioFileClip(LAUGH_FILE).fx(afx.volumex, 1.2)
         final_audio = concatenate_audioclips([final_audio, laugh_clip.set_start(0).set_duration(laugh_frames / FPS)])
