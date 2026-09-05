@@ -116,16 +116,21 @@ def fetch_and_delete_first_joke():
 def upload_to_youtube(video_file):
     print("🌐 YouTube Uploading...")
     token_files = [os.path.join(TOKENS_FOLDER, f) for f in os.listdir(TOKENS_FOLDER) if f.endswith('.json')]
-    if not token_files: return False
+    if not token_files:
+        print("❌ Token not found!")
+        return False
         
-    yt_titles = ["Otaku Comedy 😂 | Anime Jokes Hindi", "Anime Boys vs Girls 🤣 | Funny Shorts", "ये Anime कार्टून देखकर हँसी नहीं रुकेगी 😆"]
+    # जोक्स के लिए कुछ रैंडम टाइटल (आप इन्हें अपने हिसाब से बदल सकते हैं)
+    joke_titles = [
+        "Husband Wife Funny Comedy 😂",
+        "Top Husband Wife Jokes in Hindi 🤣",
+        "Very Funny Comedy Video 😆"
+    ]
+    yt_title = random.choice(joke_titles)
+    
+    # सिर्फ Title रखा गया है, Description और Tags हटा दिए गए हैं
     request_body = {
-        "snippet": {
-            "title": random.choice(yt_titles), 
-            "description": "Funny Anime style comedy in Hindi! Subscribe for more! #anime #funny #hindi #shorts #otaku", 
-            "tags": ["anime hindi", "funny anime", "hindi cartoon", "anime shorts", "comedy", "otaku"], 
-            "categoryId": "24" # Entertainment
-        },
+        "snippet": {"title": yt_title, "categoryId": "27"}, 
         "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False}
     }
 
@@ -142,7 +147,8 @@ def upload_to_youtube(video_file):
             response = request.execute()
             print(f"✅ Video LIVE: https://youtu.be/{response['id']}")
             return True
-        except Exception as e: print(f"❌ Upload Error: {e}")
+        except Exception as e:
+            print(f"❌ Upload Error: {e}")
     return False
 
 # ==========================================
